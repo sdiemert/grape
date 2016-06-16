@@ -478,7 +478,7 @@
         (let [] 
             (println (str "Attempting to load: " module)) 
             (load-file module)
-        )(catch Exception e (println (str "failed to load: " module)))
+        )(catch Exception e (clojure.stacktrace/print-stack-trace e))
 
     )
 )
@@ -497,7 +497,6 @@
        :delete ['n]})
   ;(loadRules modules)     
   (intern *ns* 'clear! (fn [] (while ((eval 'delete-any-node!)))))
-  (println "end of inner_gts")
 )
 
 (defn gts "Makes a new GTS system" 
@@ -509,4 +508,12 @@
             (dorun (map loadRules modules))
      ))
 )
+
+(defn run-test
+  ([setupF rule assertIt]
+   (setupF)
+   (rule)
+   (assertIt)
+    )
+  )
 
