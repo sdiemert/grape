@@ -692,6 +692,9 @@ Visual representations can also be saved as image files to the file system by ca
 (document-rule 'create-jens!) ; saves a PNG visual representation of rule 'createJens!
 (document-rules) ; saves PNG visual representations for all defined rules
 ```
+
+By default, images will be saved to a `doc/images` directory under your project. This directory must be created prior to using the documentation functions.
+
 Indeed, if Lighttable is used as the IDE, the visual rule representation can be "inlined" within the IDE. This function requires the NerdyPainter plugin.
 
 ## Integration with Native Clojure
