@@ -6,11 +6,12 @@
   )
 
 (defn setup [] (println "setup"))
-(defn rule [] (println "rule"))
+(defn ruleit [] (println "rule"))
 (defn assertIt [] 1)
 
-(rule 'foobar! [] {:read (pattern )})
+;(rule 'foobar! [] {:read (pattern )})
+;(setup-test)
 
-(deftest it-should-run (grape-test setup rule assertIt))
+(deftest it-should-run (grape-test "test/grape/test_tester.clj" 'testSetup! 'foobar! 'assertAfter!))
 
-(deftest it-should-run-again (grape-test setup rule assertIt))
+;(deftest it-should-run-again (grape-test setup ruleit assertIt))

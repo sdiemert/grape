@@ -52,22 +52,22 @@
     tab))
 
 (defnp dbquery
-  ([q p]
+  ([q p obj]
    (let [;_ (println "DBQuery: " q)
          res (nt/execute conn (eval 'tx) [(nt/statement q)])
          els (:els (second p))
          eids (map name (map get-id (filter-elem 'edge els)))
          nids (map name (map get-id (filter-elem 'node els )))]
-     (intern *ns* 'tx (first res))
+     (intern obj 'tx (first res))
      (let [tab (tabelize res)
            ret (map (fn [x] (sort-graph-elms x nids eids)) tab)
 ;           _ (println "Current bindings: " (eval '_ret))
 ;           _ (println "new returns:" (first tab))
            ]
-       (intern *ns* '_ret (merge (eval '_ret) (first tab) ))
+       (intern obj '_ret (merge (eval '_ret) (first tab) ))
        ret)))
-  ([q]
-   (dbquery q '())))
+  ([q obj]
+   (dbquery q '() obj)))
 
 
 (defn return-id [l]
@@ -94,13 +94,13 @@
     (first (vals (first tab)))))
 
 
-(defnp match [s c m]
+(defnp match [s c m obj]
   "match a pattern in the host graph. s is a parameterlist, c is an (optional) match context string and m is a pattern"
   (if (nil? (:els (second m)))
     '()
     (let [q (str c " "(pattern->cypher s :match m))
           ;          _ (print q)
-          m (dbquery q m)
+          m (dbquery q m obj)
           ;          _ (println "\nRESULT " m)
           ]
       m)))
@@ -150,7 +150,7 @@
                  p))
        params))
 
-(defnp run-transaction [steps mps ctr]
+(defnp run-transaction [steps mps ctr obj]
   (if (empty? steps)
     [true mps  ctr]
     (let [;_ (println "working on " mps)
@@ -172,16 +172,16 @@
             ;;
             (do ;(println "UNTIL")
               (cond (zero? btp) (let [;_ (print "      testing until condition: ")
-                                       [res m c] (run-transaction (list (first aparams)) '() -1)
+                                       [res m c] (run-transaction (list (first aparams)) '() -1 obj)
                                        ;_ (println (true? res))
                                        ]
                                   (if (true? res)
-                                    (run-transaction (rest steps) (swap mps 2) ctr) ;; until met
-                                    (let [r (run-transaction (concat (second aparams) steps) (swap mps 1) ctr)]
+                                    (run-transaction (rest steps) (swap mps 2) ctr obj) ;; until met
+                                    (let [r (run-transaction (concat (second aparams) steps) (swap mps 1) ctr obj)]
                                       r)))
                     ;; until not met
-                    (= btp 1) (run-transaction (concat (second aparams) steps) mps ctr) ;; not met
-                    (= btp 2) (run-transaction (rest steps) mps ctr))) ;; met
+                    (= btp 1) (run-transaction (concat (second aparams) steps) mps ctr obj) ;; not met
+                    (= btp 2) (run-transaction (rest steps) mps ctr obj))) ;; met
             ;;
             ;; CHOICE
             ;;
@@ -190,14 +190,14 @@
                                    mps (if new
                                          (concat (take (dec (count mps)) mps) (list {:name '__choice :btp 0 :max (dec (count aparams))} ))
                                          mps)]
-                              (run-transaction (concat (list (nth aparams btp)) (rest steps)) mps ctr))
+                              (run-transaction (concat (list (nth aparams btp)) (rest steps)) mps ctr obj))
             ;;
             ;; AVOID
             ;;
             (= '__avoid n) (let [;_ (println "AVOID")
                                   res (if new
                                         (reduce (fn [agg n]
-                                                  (let [[r m c] (run-transaction (list n) '() -1)
+                                                  (let [[r m c] (run-transaction (list n) '() -1 obj)
                                                         ;_ (println "avoid cond check: " r)
                                                         ]
                                                     (or agg (true? r))))
@@ -205,17 +205,17 @@
                                         false)]
                              (if (true? res)
                                [false mps ctr]
-                               (run-transaction (rest steps) mps ctr)))
+                               (run-transaction (rest steps) mps ctr obj)))
 
             ;;
             ;; TRANSACT
             ;;
 
             (= '__transact n) (let [;_ (println "TRANSACT, now continuing with " (first aparams))
-                                     [res n-mps n-ctr] (run-transaction (first aparams) mps ctr )]
+                                     [res n-mps n-ctr] (run-transaction (first aparams) mps ctr obj)]
                                 (if (true? res)
                                   (let [mps2 (if (> (count n-mps) (count mps)) n-mps mps)]
-                                    (run-transaction (rest steps) mps2 n-ctr))
+                                    (run-transaction (rest steps) mps2 n-ctr obj))
                                   [res n-mps n-ctr]))
             ;;
             ;; BIND
@@ -223,16 +223,19 @@
             (= '__bind n) (let [k (first aparams)
                                 v (return-id (second aparams))]
                            ; (println " binding node id " v)
-                            (intern *ns* '_bindings (assoc (eval '_bindings) k v))
+                            (intern obj '_bindings (assoc (eval '_bindings) k v))
 
                             (if new
-                              (run-transaction (rest steps) (concat mps (list {:name n :btp 0 :max 0})) ctr)
-                              (run-transaction (rest steps) mps ctr)))
+                              (run-transaction (rest steps) (concat mps (list {:name n :btp 0 :max 0})) ctr obj)
+                              (run-transaction (rest steps) mps ctr obj)))
 
             :else
 
             (let [;_ (println "RULE")
+                  xxx (println (eval 'gragra))
                    r ((:rules (eval 'gragra)) n)
+                   xxxx (println (str "here: " r))
+                   ;r ((:rules (eval (ns-resolve obj 'gragra))) n)
                    fparams (:params r)
                    aparams (resolve-consults aparams)]
               (when (nil? r)
@@ -248,7 +251,7 @@
                     matches (if (nil? reader)
                               nil
                               (let [;_ (print ".     [matching LHS] ")
-                                     cm (match s "" reader)
+                                     cm (match s "" reader obj)
                                      ;  _ (println ".       [matches found before NACs check: " (count cm) "]")
                                      nacs (filter (fn [x] (= 'NAC (first x))) (:els (second reader)))
                                      mc (check cm s nacs)
@@ -282,13 +285,13 @@
                       (when (or (contains? r :create) (contains? r :delete))
                         (do
                           ;(println "MODIFY GRAPH: " s)
-                          (dbquery s)))
+                          (dbquery s obj)))
                       ;(println s "\n.        [Success] mps:" mps " ctr:" ctr)
                       (let [m (if (nil? matches) 0 (count matches))
                             mps (if new
                                   (concat (take (dec (count mps)) mps) (list {:name n :btp 0 :max (dec m)}))
                                   mps)]
-                        (run-transaction (rest steps) mps ctr))
+                        (run-transaction (rest steps) mps ctr obj))
 
                       (catch Exception e
                         (let [msg (.getMessage e)]
@@ -307,13 +310,13 @@
             [n-mps n-ctr]))))))
 
 (defnp transact-iter
-  [steps mps iter]
+  [steps mps iter obj]
   (begintx)
-  (intern *ns* '_ret {})
+  (intern obj '_ret {})
   (let [_ (println "Transact-iteration: " iter)
         ;_ (println "mps: " (map (fn [s] [(:name s) (:btp s) (:max s)]) mps))
         ;_ (Thread/sleep 500)
-        [res r-mps ctr] (run-transaction steps mps -1)]
+        [res r-mps ctr] (run-transaction steps mps -1 obj)]
     (if (true? res)
       (do
         (committx)
@@ -328,7 +331,7 @@
                    ]
               (if (< n-ctr 0)
                 false
-                (transact-iter steps n-mps (inc iter))))))))))
+                (transact-iter steps n-mps (inc iter) obj)))))))))
 
 
 
@@ -345,8 +348,8 @@
 
 
 (defn attempt
-  [& steps]
-  (transact-iter steps '() 0))
+  [obj & steps]
+  (transact-iter steps '() 0 obj))
 
 (defn until [test & steps]
   ['__until [test] steps])
@@ -445,7 +448,7 @@
 
 (defn rule
   "DSL form for specifying a graph transformation"
-  ([n params prop]
+  ([n params prop obj]
    (let [check-syntax (partial check-syntax-generic
                                (str "RULE          :- ( rule NAME <[PAR+]> { <:theory 'spo|'dpo> <:read PATTERN> <:delete [ID+]> <:create PATTERN> } ) \n"
                                     "NAME, PAR, ID :- *symbol* \n"
@@ -464,14 +467,20 @@
                (assoc r :theory 'spo)
                r)]
        ;(validate-rule s)
-       (intern *ns* 'gragra (assoc (eval 'gragra) :rules (assoc (:rules (eval 'gragra)) n s) )))
-     (let [s (symbol n)]
-       (intern *ns* s (fn [& par] (attempt (transact (cons s par) ))))
+       (intern obj 'gragra (assoc (eval 'gragra) :rules (assoc (:rules (eval 'gragra)) n s))))
 
-       (intern *ns* (symbol (str (name n) "-dot")) (fn [] (rule->dot n)))
-       ((intern *ns* (symbol (str (name n) "-show")) (fn [] (dot->image (rule->dot n))))))))
+     (let [s (symbol n)]
+       (intern obj s (fn [& par] (attempt (transact (cons s par)))))
+
+       (intern obj (symbol (str (name n) "-dot")) (fn [] (rule->dot n)))
+       ((intern obj (symbol (str (name n) "-show")) (fn [] (dot->image (rule->dot n)))))))
+      obj
+    )
   ([n prop]
-   (rule n [] prop)))
+   (rule n [] prop *ns*))
+  ([n params prop]
+    (rule n params prop *ns*))
+  )
 
 (defn loadRules [module] 
     (try 
@@ -483,30 +492,29 @@
     )
 )
 
-(defn inner_gts [n]
+(defn inner_gts [n obj]
   (let [check-syntax (partial check-syntax-generic
                               (str "GTS    :- (gts ID ) \n"
                                    "ID     :- *symbol* \n"
                                    ))]
     (check-syntax (symbol? n) "gts ID should be a symbol."))
-  (intern *ns* 'gragra {:_graph_name n :rules {}})
-  (intern *ns* '_ret)
-  (intern *ns* '_bindings {})
-  (rule 'delete-any-node!
+  (intern obj 'gragra {:_graph_name n :rules {}})
+  (intern obj '_ret)
+  (intern obj '_bindings {})
+
+  (rule 'delete-any-node! []
       {:read (pattern (node 'n))
-       :delete ['n]})
-  ;(loadRules modules)     
-  (intern *ns* 'clear! (fn [] (while ((eval 'delete-any-node!)))))
+       :delete ['n]} obj)
+  (intern obj 'clear! (fn [] (while ((eval 'delete-any-node!)))))
+  obj
 )
 
 (defn gts "Makes a new GTS system" 
-    ([n] (let [] (println "[n]") (inner_gts n)))
-    ([n modules] (let [] 
-            (println (str "[n modules] -> " modules) ) 
-            (println modules) 
-            (inner_gts n) 
-            (dorun (map loadRules modules))
-     ))
+    ([n obj] (let [] (inner_gts n obj)))
+    ;([n modules] (let []
+    ;        (inner_gts n)
+    ;        (dorun (map loadRules modules))
+    ; ))
 )
 
 (defn run-test
