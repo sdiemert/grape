@@ -231,11 +231,12 @@
 
             :else
 
-            (let [;_ (println "RULE")
-                  xxx (println (eval 'gragra))
-                   r ((:rules (eval 'gragra)) n)
-                   xxxx (println (str "here: " r))
-                   ;r ((:rules (eval (ns-resolve obj 'gragra))) n)
+            (let [
+                   _ (println obj)
+                   _ (println n )
+                   ;r ((:rules (eval 'gragra)) n)
+                   z (:rules (get (get obj :gragra) :rules))
+                   r ((:rules (get (get obj :gragra) :rules)) n)
                    fparams (:params r)
                    aparams (resolve-consults aparams)]
               (when (nil? r)
@@ -312,11 +313,12 @@
 (defnp transact-iter
   [steps mps iter obj]
   (begintx)
-  (intern obj '_ret {})
-  (let [_ (println "Transact-iteration: " iter)
-        ;_ (println "mps: " (map (fn [s] [(:name s) (:btp s) (:max s)]) mps))
-        ;_ (Thread/sleep 500)
-        [res r-mps ctr] (run-transaction steps mps -1 obj)]
+
+  (let [
+        newObj (assoc obj :_ret {})
+        _ (println "Transact-iteration: " iter)
+        [res r-mps ctr] (run-transaction steps mps -1 newObj)
+      ]
     (if (true? res)
       (do
         (committx)
@@ -325,13 +327,20 @@
         (when (< iter 500)
           (do
             (rollbacktx)
-            (let [ [n-mps n-ctr] (track-back r-mps ctr)
-                   ;_ (println "transaction failed at ctr:" ctr "  !! " r-mps)
-                   ;_ (println " new ctr: " n-ctr "  || " n-mps)
-                   ]
+            (let [
+                  [n-mps n-ctr] (track-back r-mps ctr)
+                  ]
               (if (< n-ctr 0)
                 false
-                (transact-iter steps n-mps (inc iter) obj)))))))))
+                (transact-iter steps n-mps (inc iter) newObj)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+ )
 
 
 
@@ -447,7 +456,13 @@
 
 
 (defn rule
-  "DSL form for specifying a graph transformation"
+  "
+  DSL form for specifying a graph transformation
+  param n - name of the rule
+  param params - params for the rule
+  param prop - rule pattern & structure
+  param obj
+  "
   ([n params prop obj]
    (let [check-syntax (partial check-syntax-generic
                                (str "RULE          :- ( rule NAME <[PAR+]> { <:theory 'spo|'dpo> <:read PATTERN> <:delete [ID+]> <:create PATTERN> } ) \n"
@@ -462,19 +477,28 @@
      (if (contains? prop :delete) (check-syntax (contains? prop :read) "'delete' part requires 'read' part to be present"))
      (if (contains? prop :theory) (check-syntax (valid-schema s/Symbol (:theory prop)) "theory must be a symbol"))
 
-     (let [r (assoc prop :params params)
+     ;; Here we associate the new rule by name into the
+     ;; gragra's rule set.
+     (let [
+           r (assoc prop :params params)
            s (if (not (contains? prop :theory))
                (assoc r :theory 'spo)
-               r)]
-       ;(validate-rule s)
-       (intern obj 'gragra (assoc (eval 'gragra) :rules (assoc (:rules (eval 'gragra)) n s))))
+               r)
+           newObj (assoc obj :gragra
+                             (assoc (get obj :gragra) :rules
+                                                      (assoc (get (get obj :gragra) :rules) n s) ; gives the rule sub-object.
+                                                      )
+                             )
+           ]
 
-     (let [s (symbol n)]
-       (intern obj s (fn [& par] (attempt (transact (cons s par)))))
+       ;; Then assocate the rule with a function that actually
+       ;; does the database transactions for the rules.
+       (assoc obj (symbol n)
+                  (fn [& par] (attempt (transact (cons (symbol n) par))))
+                  )
 
-       (intern obj (symbol (str (name n) "-dot")) (fn [] (rule->dot n)))
-       ((intern obj (symbol (str (name n) "-show")) (fn [] (dot->image (rule->dot n)))))))
-      obj
+       )
+     )
     )
   ([n prop]
    (rule n [] prop *ns*))
@@ -498,16 +522,17 @@
                                    "ID     :- *symbol* \n"
                                    ))]
     (check-syntax (symbol? n) "gts ID should be a symbol."))
-  (intern obj 'gragra {:_graph_name n :rules {}})
-  (intern obj '_ret)
-  (intern obj '_bindings {})
 
-  (rule 'delete-any-node! []
-      {:read (pattern (node 'n))
-       :delete ['n]} obj)
-  (intern obj 'clear! (fn [] (while ((eval 'delete-any-node!)))))
-  obj
-)
+  ;(rule 'delete-any-node! []
+  ;    {:read (pattern (node 'n))
+  ;     :delete ['n]} obj)
+
+  (assoc (assoc
+           (assoc
+             obj :_bingins {})
+           :_ret {})
+    :gragra {:_graph_name n :rules {}})
+  )
 
 (defn gts "Makes a new GTS system" 
     ([n obj] (let [] (inner_gts n obj)))

@@ -3,21 +3,21 @@
             )
   )
 
-(def x (gts 'example *ns*))
+(def x (gts 'example {}))
+
+(println x)
 
 (def x (rule 'foobar! [] {:create (pattern (node 'n {:label "FOO"}))} x))
 
-(println *ns*)
-(println (ns-interns x))
+(println x)
+
 ;(clear!)
 
 
 (defn doThing []
   (println "doThing")
   (println *ns*)
-  (println (ns-interns x))
-  (println (eval (ns-resolve x 'gragra)))
-  (attempt x (apl 'clear!))
+  (println x)
   (attempt x (apl 'foobar!))
   (attempt x (apl 'foobar!))
   (attempt x (apl 'foobar!))
