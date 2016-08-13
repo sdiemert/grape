@@ -235,8 +235,8 @@
                    _ (println obj)
                    _ (println n )
                    ;r ((:rules (eval 'gragra)) n)
-                   z (:rules (get (get obj :gragra) :rules))
-                   r ((:rules (get (get obj :gragra) :rules)) n)
+                   z (get (get obj :gragra) :rules)
+                   r (z n)
                    fparams (:params r)
                    aparams (resolve-consults aparams)]
               (when (nil? r)
@@ -493,7 +493,7 @@
 
        ;; Then assocate the rule with a function that actually
        ;; does the database transactions for the rules.
-       (assoc obj (symbol n)
+       (assoc newObj (symbol n)
                   (fn [& par] (attempt (transact (cons (symbol n) par))))
                   )
 
