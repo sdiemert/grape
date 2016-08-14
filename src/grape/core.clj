@@ -57,15 +57,13 @@
          res (nt/execute conn (eval 'tx) [(nt/statement q)])
          els (:els (second p))
          eids (map name (map get-id (filter-elem 'edge els)))
-         nids (map name (map get-id (filter-elem 'node els )))]
-     (intern obj 'tx (first res))
-     (let [tab (tabelize res)
-           ret (map (fn [x] (sort-graph-elms x nids eids)) tab)
-;           _ (println "Current bindings: " (eval '_ret))
-;           _ (println "new returns:" (first tab))
-           ]
-       (intern obj '_ret (merge (eval '_ret) (first tab) ))
-       ret)))
+         nids (map name (map get-id (filter-elem 'node els )))
+         tab (tabelize res)
+         ret (map (fn [x] (sort-graph-elms x nids eids)) tab)
+         ]
+       (assoc (assoc obj :tx (first res)) :_ret (merge (obj :_ret) (first tab) ))
+       ;ret)
+    ))
   ([q obj]
    (dbquery q '() obj)))
 
@@ -277,7 +275,7 @@
                                       (reduce (partial str-sep ", ") (:delete r)))
                                  "")
                                (if (contains? r :create)
-                                 (pattern->cypher s :create (:create r) (:read r))
+                                 (pattern->cypher s :create (:create r) (:read r) obj)
                                  ""))
                         ;_ (print ".     [attempting to rewrite graph:] ")
                         ]

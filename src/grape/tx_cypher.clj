@@ -8,8 +8,8 @@
             [grape.util :refer :all]
             ))
 
-(defn graphlabel []
-  (str ":_" (name (:_graph_name (eval 'gragra)))))
+(defn graphlabel [obj]
+  (str ":_" (name (:_graph_name (get obj :gragra)))))
 
 
 (defn resolve-value [scope s]
@@ -29,36 +29,36 @@
 
 
 
-(defn node->cypher [s m n]
+(defn node->cypher [s m n obj]
   (let [c (second n)
         k (if (= m :match) " MATCH" " CREATE")
         nid (:id c)]
     (str k " (" nid
          (let [l (:label c)]
            (if (nil? l)
-             (graphlabel)
-             (str  ":" (resolve-value s l) (graphlabel))))
+             (graphlabel obj)
+             (str  ":" (resolve-value s l) (graphlabel obj))))
          (asserts->cypher s (:asserts c))
          ") "
          )))
 
-(defn edge->cypher [s m e]
+(defn edge->cypher [s m e obj]
   (let [c (second e)
         k (if (= m :match) " MATCH" " CREATE")]
     (str k " (" (:src c) ")-[" (:id c)
          (let [l (:label c)]
            (if (nil? l)
-             (graphlabel)
+             (graphlabel obj)
              (str ":" (resolve-value s l))))
          (asserts->cypher s (:ass c))
          "]->(" (:tar c) ")")))
 
-(defn graphelem->cypher [s m e]
+(defn graphelem->cypher [s m obj e]
   "Translate a graph element to cipher - either node or edge"
   (let [t (first e)]
     (cond
-      (= 'node t) (node->cypher s m e)
-      (= 'edge t) (edge->cypher s m e)
+      (= 'node t) (node->cypher s m e obj)
+      (= 'edge t) (edge->cypher s m e obj)
       (= 'NAC t) ""
       (= 'cond t) ""
       (= 'assign t) ""
@@ -107,7 +107,7 @@
 
 (defn pattern->cypher
   "translate a read graph pattern to cypher matching query"
-  ([scope m p excluded]
+  ([scope m p excluded obj]
    (let [s (second p)
          els (:els s)
          sem (:sem s)
@@ -118,7 +118,7 @@
      (if (nil? els)
        ""
        (str
-        (reduce (partial str-sep " ") (map (partial graphelem->cypher scope m) els))
+        (reduce (partial str-sep " ") (map (partial graphelem->cypher scope m obj) els))
         (if (= m :match)
           (let [ex_eids (keys (:edges excluded))
                 ex_nids (keys (:nodes excluded))]
@@ -165,13 +165,13 @@
                 (if (= 0 (count rstr))
                   " RETURN * "
                   (str " RETURN " (.substring rstr 1 (count rstr) )))))))))))
-  ([scope m p]
-   (pattern->cypher scope m p {:nodes '{} :edges '{}})))
+  ([scope m p obj]
+   (pattern->cypher scope m p {:nodes '{} :edges '{}} obj)))
 
 
 (defn savepattern->cypher
   "translate a read graph pattern to cypher matching query"
-  ([scope m p excluded]
+  ([scope m p excluded obj]
    (let [s (second p)
          els (:els s)
          sem (:sem s)
@@ -221,8 +221,8 @@
               (if (= 0 (count rstr))
                 " RETURN * "
                 (str " RETURN " (.substring rstr 1 (count rstr) ))))))))))
-  ([scope m p]
-   (pattern->cypher scope m p {:nodes '{} :edges '{}})))
+  ([scope m p obj]
+   (pattern->cypher scope m p {:nodes '{} :edges '{}} obj)))
 
 
 (defn redex->cypher [r]
