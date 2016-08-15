@@ -136,9 +136,6 @@
                        ms
                        )
                      )
-
-             _ (print "newMs:   ")
-             _ (println newMs)
              ]
               newMs
          )
@@ -245,8 +242,6 @@
             :else
 
             (let [
-                   _ (println obj)
-                   _ (println n )
                    ;r ((:rules (eval 'gragra)) n)
                    z (get (get obj :gragra) :rules)
                    r (z n)

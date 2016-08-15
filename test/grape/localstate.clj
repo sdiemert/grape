@@ -76,14 +76,67 @@
          }
         x)
 )
+
+(def x (rule 'threeNodes? []
+             {:read (pattern
+                      (node 'n1 {:label "n1"})
+                      (node 'n2 {:label "n1"})
+                      (node 'n3 {:label "n1"})
+                      )
+              }
+             x
+             )
+  )
+
+(def x (rule 'paramsTest! ['name]
+             {:create (pattern
+                      (node 'n1 {:label "n1" :asserts {:name "'&name'"}})
+                      )
+              }
+             x
+             )
+  )
+
+(def x (rule 'paramsTest2! ['name]
+             {:create (pattern
+                        (node 'n1 {:label "n1" :asserts {:name "'&name'"}})
+                        )
+              }
+             x
+             )
+  )
+
+(def x (rule 'transactTestPass! []
+             {:create (pattern
+                        (node 'n1 {:label "n1"})
+                        )
+              }
+             x
+             )
+  )
+
+(def x (rule 'transactTestFail! []
+             {:read (pattern
+                      (node 'n2 {:label "n2"})
+                      )
+              :create (pattern
+                        (node 'n1 {:label "n1"})
+                        )
+              }
+             x
+             )
+  )
+
+
+
 (println x)
 
 (defn doThing []
   (while (attempt x (apl 'deleteAnyNode!)))
-  (attempt x (apl 'testNACHelper!))
-  (attempt x (apl 'testNAC!))
-  ;(attempt x (apl 'newEdge!))
-  ;(attempt x (apl 'matchNewEdge!))
-  ;(attempt x (apl 'deleteNode!))
+  (attempt x (transact
+                     (apl 'transactTestPass!)
+                     (apl 'transactTestFail!)
+                     )
+           )
   )
 
