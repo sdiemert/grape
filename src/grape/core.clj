@@ -61,8 +61,8 @@
          tab (tabelize res)
          ret (map (fn [x] (sort-graph-elms x nids eids)) tab)
          ]
-       (assoc (assoc obj :tx (first res)) :_ret (merge (obj :_ret) (first tab) ))
-       ;ret)
+      (assoc (assoc (assoc obj :tx (first res)) :_ret (merge (obj :_ret) (first tab) )) :ret ret)
+
     ))
   ([q obj]
    (dbquery q '() obj)))
@@ -96,38 +96,53 @@
   "match a pattern in the host graph. s is a parameterlist, c is an (optional) match context string and m is a pattern"
   (if (nil? (:els (second m)))
     '()
-    (let [q (str c " "(pattern->cypher s :match m))
+    (let [q (str c " "(pattern->cypher s :match m obj))
           ;          _ (print q)
           m (dbquery q m obj)
           ;          _ (println "\nRESULT " m)
           ]
       m)))
 
-(defnp match-nacs [m s nacs]
+(defnp match-nacs [m s nacs obj]
   (if (empty? nacs)
     false
     (let [nac (first nacs)
           con (redex->cypher m)
           [_ nacid p] nac
-          ext (pattern->cypher s :match p m)
+          ext (pattern->cypher s :match p m obj)
           ;_ (print ".       [Trying NAC " nacid "]: " con "  ||  " ext )
           ]
-      (let [res (dbquery (str con " " ext))
+      (let [res (dbquery (str con " " ext) obj)
             ; _ (println " [" (not (empty? res)) "]")
             ]
         (if (empty? res)
-          (match-nacs m s (rest nacs))
-          true)))))
+          (match-nacs m s (rest nacs) obj)
+          true
+          )
+        )
+      )
+    )
+ )
 
 (defn rule-exists? [n]
   (not (empty? (:rules (eval 'gragra) n))))
 
-(defnp check [ms s nacs]
-  (remove (fn [x] (nil? x))
-          (map (fn [m] (if (match-nacs m s nacs)
-                         nil
-                         m))
-               ms)))
+(defn check [ms s nacs obj]
+  "Removes everything that matches a NAC and returns a new sequence."
+       (let [newMs (remove
+                     (fn [x] (nil? x))
+                     (map
+                       (fn [m] (if (match-nacs m s nacs obj) nil m))
+                       ms
+                       )
+                     )
+
+             _ (print "newMs:   ")
+             _ (println newMs)
+             ]
+              newMs
+         )
+       )
 
 
 (defnp drop-n [coll n]
@@ -250,15 +265,17 @@
                     matches (if (nil? reader)
                               nil
                               (let [;_ (print ".     [matching LHS] ")
-                                     cm (match s "" reader obj)
+                                     cm (get (match s "" reader obj) :ret)
                                      ;  _ (println ".       [matches found before NACs check: " (count cm) "]")
                                      nacs (filter (fn [x] (= 'NAC (first x))) (:els (second reader)))
-                                     mc (check cm s nacs)
+                                     mc (check cm s nacs obj)
                                      ;  _ (println ".         [matches remaining after NACs check: " (count mc) "]" )
                                      mt (drop-n mc btp)
                                      ;_ (println ".           [matches remaining after backtracking point (" btp "):" (count mt) "]")])
                                      ]
-                                mt))]
+                                mt)
+                              )
+                    ]
 
                 (if (and (not (nil? matches)) (zero? (count matches)))
                   (do
@@ -296,7 +313,8 @@
                         (let [msg (.getMessage e)]
                           (println (str ".      [Failed]: " msg))
                           (throw e)
-                          [false mps ctr])))))))))))
+                          [false mps ctr]))))))
+              )))))
 
 (defnp track-back [mps ctr]
   (let [n-ctr (dec ctr)]

@@ -231,6 +231,8 @@
         edges (:edges r)]
     (str
      (reduce str (map (fn [[n i]] (str " MATCH (" n ") WHERE id(" n ")=" i " ")) nodes))
-     (reduce str (map (fn [[e i]] (str " MATCH ()-[" e "]->() WHERE id(" e ")=" i " ")) edges)))))
+     (reduce str (map (fn [[e i]] (str " MATCH ()-[" e "]->() WHERE id(" e ")=" i " ")) edges)))
+    )
+  )
 
 
