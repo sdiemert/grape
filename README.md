@@ -7,7 +7,8 @@ A Clojure library designed to provide support for graph rewriting based on a per
 # Quick Start
 
 * **Install Neo4J** Grape requires the graph database Neo4j. The community edition (free) can be downloaded here: https://neo4j.com/download/
-* **Create Clojure project** For example with Leiningen ``lein new gapetest``
+* **Clone Grape** Clone this repository and execute the following commands within it's top-level directory.
+* **Create Clojure project** For example with Leiningen ``lein new grapetest``
 * **Add profiles.clj** Create a new file ``profiles.clj`` to contain your neo4j connection info:
 
 ```clojure
